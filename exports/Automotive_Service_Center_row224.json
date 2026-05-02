@@ -1,0 +1,301 @@
+{
+  "exportFormatVersion": 2,
+  "exportTime": "2026-03-05 00:00:00",
+  "containerVersion": {
+    "path": "accounts/0/containers/0/versions/0",
+    "accountId": "0",
+    "containerId": "0",
+    "containerVersionId": "0",
+    "container": {
+      "path": "accounts/0/containers/0",
+      "accountId": "0",
+      "containerId": "0",
+      "name": "Automotive Service Center",
+      "publicId": "GTM-XXXXXXX",
+      "usageContext": [
+        "WEB"
+      ]
+    },
+    "builtInVariable": [
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "type": "CLICK_URL",
+        "name": "Click URL"
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "type": "CLICK_ELEMENT",
+        "name": "Click Element"
+      }
+    ],
+    "tag": [
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "tagId": "1",
+        "name": "GA4 - Configuration",
+        "type": "gaawc",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "measurementId",
+            "value": "G-ZGT6RJ1E53"
+          }
+        ],
+        "firingTriggerId": [
+          "3"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NOT_SET"
+        }
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "tagId": "2",
+        "name": "GA4 - Event - dc-service-booked",
+        "type": "gaawe",
+        "parameter": [
+          {
+            "type": "TAG_REFERENCE",
+            "key": "gaSettings",
+            "value": "GA4 - Configuration"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "eventName",
+            "value": "dc-service-booked"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "measurementIdOverride",
+            "value": "G-ZGT6RJ1E53"
+          }
+        ],
+        "firingTriggerId": [
+          "1"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NOT_SET"
+        }
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "tagId": "3",
+        "name": "GA4 - Event - phone_click",
+        "type": "gaawe",
+        "parameter": [
+          {
+            "type": "TAG_REFERENCE",
+            "key": "gaSettings",
+            "value": "GA4 - Configuration"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "eventName",
+            "value": "phone_click"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "measurementIdOverride",
+            "value": "G-ZGT6RJ1E53"
+          }
+        ],
+        "firingTriggerId": [
+          "2"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NOT_SET"
+        }
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "tagId": "4",
+        "name": "GAds - Automotive Service Center - Booked_Appointment",
+        "type": "awct",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "conversionId",
+            "value": "7522921388"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "conversionLabel",
+            "value": "NzBbCKzXmoMcEN6Amdkp"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "conversionValue",
+            "value": "65"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "currencyCode",
+            "value": "USD"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "remarketingOnly",
+            "value": "false"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "enabledMd",
+            "value": "true"
+          }
+        ],
+        "firingTriggerId": [
+          "1"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NOT_SET"
+        }
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "tagId": "5",
+        "name": "GAds - Automotive Service Center - Phone_Click",
+        "type": "awct",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "conversionId",
+            "value": "7522921388"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "conversionLabel",
+            "value": "VjAOCKjZmoMcEN6Amdkp"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "conversionValue",
+            "value": "10"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "currencyCode",
+            "value": "USD"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "remarketingOnly",
+            "value": "false"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "enabledMd",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "2"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NOT_SET"
+        }
+      }
+    ],
+    "trigger": [
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "triggerId": "1",
+        "name": "CE - OktoRocket - Appointment Booked",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "EQUALS",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "dc-service-booked"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "triggerId": "2",
+        "name": "CL - Phone Click - 6054507514",
+        "type": "LINK_CLICK",
+        "filter": [
+          {
+            "type": "CONTAINS",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{Click URL}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "6054507514"
+              }
+            ]
+          }
+        ],
+        "parameter": [
+          {
+            "type": "BOOLEAN",
+            "key": "waitForTags",
+            "value": "true"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "checkValidation",
+            "value": "true"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "waitForTagsTimeout",
+            "value": "2000"
+          }
+        ]
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "triggerId": "3",
+        "name": "All Pages",
+        "type": "PAGEVIEW"
+      }
+    ],
+    "variable": []
+  }
+}

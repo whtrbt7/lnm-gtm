@@ -1,0 +1,48 @@
+export const COLUMNS = [
+  { key: 'name',      label: 'Client',      sortable: true,  fixed: false },
+  { key: 'gads_cid',  label: 'GAds CID',    sortable: false, fixed: false },
+  { key: 'gtm_id',    label: 'GTM ID',      sortable: false, fixed: false },
+  { key: 'status',    label: 'GTM Status',  sortable: true,  fixed: false,
+    filterType: 'select',
+    filterOptions: [
+      { value: '',                  label: 'All' },
+      { value: 'needs_container',   label: 'Needs Container' },
+      { value: 'has_container',     label: 'Has Container' },
+      { value: 'script_injected',   label: 'Script Injected' },
+      { value: 'injection_failed',  label: 'Inject Failed' },
+      { value: 'external_container',label: 'External' },
+      { value: 'verified',          label: 'Verified' },
+      { value: '__none__',          label: 'Not Started' },
+    ],
+  },
+  { key: 'ga4',       label: 'GA4',         sortable: false, fixed: false,
+    filterType: 'select',
+    filterOptions: [
+      { value: '',        label: 'All' },
+      { value: 'has',     label: 'Has GA4' },
+      { value: 'missing', label: 'Missing GA4' },
+    ],
+  },
+  { key: 'gads_conv', label: 'GAds Conv.',  sortable: true,  fixed: false,
+    filterType: 'select',
+    filterOptions: [
+      { value: '',        label: 'All' },
+      { value: 'has',     label: 'Has Conv.' },
+      { value: 'missing', label: 'Missing Conv.' },
+    ],
+  },
+  { key: 'scheduler', label: 'Scheduler',   sortable: false, fixed: false,
+    filterType: 'select',
+    filterOptions: [
+      { value: '',           label: 'All' },
+      { value: 'autoops',    label: 'AutoOps' },
+      { value: 'shopgenie',  label: 'ShopGenie' },
+      { value: 'oktomocket', label: 'OktoRocket' },
+      { value: '__none__',   label: 'None' },
+    ],
+  },
+  { key: 'phone',     label: 'Phone',       sortable: false, fixed: false },
+  { key: 'actions',   label: 'Actions',     sortable: false, fixed: true  },
+]
+
+export const DEFAULT_HIDDEN = new Set()

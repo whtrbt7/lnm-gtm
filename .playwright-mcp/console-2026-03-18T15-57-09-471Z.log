@@ -1,0 +1,2 @@
+[   49826ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://auth.steercrm.com/favicon.ico:0
+[  424248ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://dashboard.autoops.com/api/auth/csrf:0

@@ -1,0 +1,13 @@
+[   18244ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://dashboard.autoops.com/api/auth/session:0
+[   26294ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://dashboard.autoops.com/api/auth/csrf:0
+[   26349ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://dashboard.autoops.com/api/auth/providers:0
+[   26434ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://dashboard.autoops.com/api/auth/session:0
+[   26628ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://dashboard.autoops.com/auth/session:0
+[   26766ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://dashboard.autoops.com/api/trpc/auth.session:0
+[   77807ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://dashboard.autoops.com/api/auth/keycloak/signin:0
+[  120013ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://dashboard.autoops.com/_next/static/chunks/pages/_app.js:0
+[  135252ms] [ERROR] Access to fetch at 'https://auth.steercrm.com/.well-known/openid-configuration' from origin 'https://dashboard.autoops.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://dashboard.autoops.com/stats:0
+[  135255ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://auth.steercrm.com/.well-known/openid-configuration:0
+[  135352ms] [ERROR] Access to fetch at 'https://auth.steercrm.com/auth/realms/master/.well-known/openid-configuration' from origin 'https://dashboard.autoops.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ https://dashboard.autoops.com/stats:0
+[  135353ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://auth.steercrm.com/auth/realms/master/.well-known/openid-configuration:0
+[  375794ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://dashboard.autoops.com/api/trpc/user.me?batch=1&input=%7B%220%22%3A%7B%22json%22%3Anull%2C%22meta%22%3A%7B%22values%22%3A%5B%22undefined%22%5D%7D%7D%7D:0

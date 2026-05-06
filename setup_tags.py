@@ -671,7 +671,16 @@ def main():
         print(f'  Using Supabase IDs: account={acct_id}, container={ctr_id}')
     else:
         acct_id, ctr_id = find_container(service, gtm_id)
-    ws_id                  = get_workspace(service, acct_id, ctr_id)
+    try:
+        ws_id = get_workspace(service, acct_id, ctr_id)
+    except Exception as e:
+        from googleapiclient.errors import HttpError
+        if isinstance(e, HttpError) and e.resp.status == 404 and sb_account_id and sb_container_id and not args.account_id:
+            print(f'  [warn] Stored IDs returned 404 — clearing cache and scanning GTM accounts...')
+            acct_id, ctr_id = find_container(service, gtm_id)
+            ws_id = get_workspace(service, acct_id, ctr_id)
+        else:
+            raise
     existing_triggers  = list_triggers(service, acct_id, ctr_id, ws_id)
     existing_tags      = list_tags(service, acct_id, ctr_id, ws_id)
     existing_variables = list_variables(service, acct_id, ctr_id, ws_id)

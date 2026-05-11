@@ -5,6 +5,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from dotenv import load_dotenv
+load_dotenv(ROOT / '.env')
+
 from src.core.client import get_client, MANAGER_CID
 from google.api_core import protobuf_helpers
 

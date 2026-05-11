@@ -25,10 +25,25 @@ SUPABASE_HEADERS = {
     'Content-Type': 'application/json',
 }
 
+# type: 'datalayer'    — scheduler fires a native dataLayer event
+# type: 'postmessage'  — scheduler lives in an iframe, fires postMessage on booking complete
+#                        listener tag pushes synthetic datalayer event so GA4/GAds tags fire normally
+# type: 'click_link'   — scheduler opens in new tab via direct link; track the click as intent signal
 SCHEDULER_MAP = {
-    'autoops':    ('ao-appointment-booked', 'AutoOps'),
-    'shopgenie':  ('appointmentBooked',     'Shop Genie'),
-    'oktorocket': ('dc-service-booked',     'OktoRocket'),
+    'autoops':    {'event': 'ao-appointment-booked',        'label': 'AutoOps',    'type': 'datalayer'},
+    'shopgenie':  {'event': 'appointmentBooked',             'label': 'Shop Genie', 'type': 'datalayer'},
+    'oktorocket': {'event': 'dc-service-booked',             'label': 'OktoRocket', 'type': 'datalayer'},
+    # SteerCRM merged with AutoOps — their scheduler fires ao- events
+    'steercrm':   {'event': 'ao-appointment-booked',         'label': 'AutoOps',    'type': 'datalayer'},
+    # Tekmetric: iframe overlay at booking.tekmetric.com sends bookingTool:closeModal on completion
+    'tekmetric':  {'event': 'tekmetric-appointment-booked',  'label': 'Tekmetric',  'type': 'postmessage',
+                   'postmessage_listen': 'bookingTool:closeModal'},
+    # Shopmonkey: direct link scheduler (URL TBD — update click_url_contains once known)
+    'shopmonkey': {'event': 'shopmonkey-appointment-click',  'label': 'Shopmonkey', 'type': 'click_link',
+                   'click_url_contains': 'shopmonkey'},
+    # Protractor: direct link to appointment.protractor.com
+    'protractor': {'event': 'protractor-appointment-click',  'label': 'Protractor', 'type': 'click_link',
+                   'click_url_contains': 'appointment.protractor.com'},
 }
 
 def get_scheduler(scheduler_type):
@@ -62,6 +77,10 @@ def _call(fn, retries=6):
                 time.sleep(wait); continue
             raise
 
+def _is_dup(e):
+    from googleapiclient.errors import HttpError
+    return isinstance(e, HttpError) and e.resp.status == 400 and b'duplicate' in (e.content or b'').lower()
+
 def list_triggers(service, acct, ctr, ws):
     resp = _call(lambda: service.accounts().containers().workspaces().triggers().list(parent=f'accounts/{acct}/containers/{ctr}/workspaces/{ws}').execute())
     return {t['name']: t['triggerId'] for t in resp.get('trigger', [])}
@@ -69,12 +88,21 @@ def list_triggers(service, acct, ctr, ws):
 def ensure_trigger(service, acct, ctr, ws, body, existing, force):
     name = body['name']
     parent = f'accounts/{acct}/containers/{ctr}/workspaces/{ws}'
-    if name in existing:
-        if not force: return existing[name], 'existed'
-        try: _call(lambda: service.accounts().containers().workspaces().triggers().delete(path=f'{parent}/triggers/{existing[name]}').execute())
-        except: pass
-    res = _call(lambda: service.accounts().containers().workspaces().triggers().create(parent=parent, body=body).execute())
-    return res['triggerId'], ('recreated' if name in existing else 'new')
+    eid = existing.get(name)
+    if eid:
+        if not force: return eid, 'existed'
+        res = _call(lambda: service.accounts().containers().workspaces().triggers().update(path=f'{parent}/triggers/{eid}', body=body).execute())
+        return res['triggerId'], 'updated'
+    try:
+        res = _call(lambda: service.accounts().containers().workspaces().triggers().create(parent=parent, body=body).execute())
+        return res['triggerId'], 'new'
+    except Exception as e:
+        if _is_dup(e):
+            fresh = list_triggers(service, acct, ctr, ws)
+            if name in fresh:
+                res = _call(lambda: service.accounts().containers().workspaces().triggers().update(path=f'{parent}/triggers/{fresh[name]}', body=body).execute())
+                return res['triggerId'], 'updated'
+        raise
 
 def list_tags(service, acct, ctr, ws):
     resp = _call(lambda: service.accounts().containers().workspaces().tags().list(parent=f'accounts/{acct}/containers/{ctr}/workspaces/{ws}').execute())
@@ -83,12 +111,21 @@ def list_tags(service, acct, ctr, ws):
 def ensure_tag(service, acct, ctr, ws, body, existing, force):
     name = body['name']
     parent = f'accounts/{acct}/containers/{ctr}/workspaces/{ws}'
-    if name in existing:
-        if not force: return existing[name], 'existed'
-        try: _call(lambda: service.accounts().containers().workspaces().tags().delete(path=f'{parent}/tags/{existing[name]}').execute())
-        except: pass
-    res = _call(lambda: service.accounts().containers().workspaces().tags().create(parent=parent, body=body).execute())
-    return res['tagId'], ('recreated' if name in existing else 'new')
+    eid = existing.get(name)
+    if eid:
+        if not force: return eid, 'existed'
+        res = _call(lambda: service.accounts().containers().workspaces().tags().update(path=f'{parent}/tags/{eid}', body=body).execute())
+        return res['tagId'], 'updated'
+    try:
+        res = _call(lambda: service.accounts().containers().workspaces().tags().create(parent=parent, body=body).execute())
+        return res['tagId'], 'new'
+    except Exception as e:
+        if _is_dup(e):
+            fresh = list_tags(service, acct, ctr, ws)
+            if name in fresh:
+                res = _call(lambda: service.accounts().containers().workspaces().tags().update(path=f'{parent}/tags/{fresh[name]}', body=body).execute())
+                return res['tagId'], 'updated'
+        raise
 
 def list_variables(service, acct, ctr, ws):
     resp = _call(lambda: service.accounts().containers().workspaces().variables().list(parent=f'accounts/{acct}/containers/{ctr}/workspaces/{ws}').execute())
@@ -97,12 +134,21 @@ def list_variables(service, acct, ctr, ws):
 def ensure_variable(service, acct, ctr, ws, body, existing, force):
     name = body['name']
     parent = f'accounts/{acct}/containers/{ctr}/workspaces/{ws}'
-    if name in existing:
-        if not force: return existing[name], 'existed'
-        try: _call(lambda: service.accounts().containers().workspaces().variables().delete(path=f'{parent}/variables/{existing[name]}').execute())
-        except: pass
-    res = _call(lambda: service.accounts().containers().workspaces().variables().create(parent=parent, body=body).execute())
-    return res['variableId'], ('recreated' if name in existing else 'new')
+    eid = existing.get(name)
+    if eid:
+        if not force: return eid, 'existed'
+        res = _call(lambda: service.accounts().containers().workspaces().variables().update(path=f'{parent}/variables/{eid}', body=body).execute())
+        return res['variableId'], 'updated'
+    try:
+        res = _call(lambda: service.accounts().containers().workspaces().variables().create(parent=parent, body=body).execute())
+        return res['variableId'], 'new'
+    except Exception as e:
+        if _is_dup(e):
+            fresh = list_variables(service, acct, ctr, ws)
+            if name in fresh:
+                res = _call(lambda: service.accounts().containers().workspaces().variables().update(path=f'{parent}/variables/{fresh[name]}', body=body).execute())
+                return res['variableId'], 'updated'
+        raise
 
 def enable_builtin_variable(service, acct, ctr, ws, var_type):
     parent = f'accounts/{acct}/containers/{ctr}/workspaces/{ws}'
@@ -116,10 +162,10 @@ def enable_builtin_variable(service, acct, ctr, ws, var_type):
 def ga4_config_tag(ga4_id, ap_tid):
     return {'name': 'GA4 - Configuration', 'type': 'gaawc', 'parameter': [{'type': 'TEMPLATE', 'key': 'measurementId', 'value': ga4_id}], 'firingTriggerId': [ap_tid]}
 
-def ga4_event_tag(ga4_id, event_name, trigger_ids):
+def ga4_event_tag(ga4_id, event_name, trigger_ids, tag_name=None):
     is_sg = event_name == 'appointmentBooked'
     ev = 'generate_lead' if is_sg else event_name
-    body = {'name': f'GA4 - Event - {ev}', 'type': 'gaawe', 'parameter': [{'type': 'TAG_REFERENCE', 'key': 'gaSettings', 'value': 'GA4 - Configuration'}, {'type': 'TEMPLATE', 'key': 'eventName', 'value': ev}, {'type': 'TEMPLATE', 'key': 'measurementIdOverride', 'value': ga4_id}], 'firingTriggerId': trigger_ids if isinstance(trigger_ids, list) else [trigger_ids]}
+    body = {'name': tag_name or f'GA4 - Event - {ev}', 'type': 'gaawe', 'parameter': [{'type': 'TAG_REFERENCE', 'key': 'gaSettings', 'value': 'GA4 - Configuration'}, {'type': 'TEMPLATE', 'key': 'eventName', 'value': ev}, {'type': 'TEMPLATE', 'key': 'measurementIdOverride', 'value': ga4_id}], 'firingTriggerId': trigger_ids if isinstance(trigger_ids, list) else [trigger_ids]}
     if is_sg: body['parameter'].append({'type': 'LIST', 'key': 'eventParameters', 'list': [
         {'type': 'MAP', 'map': [{'type': 'TEMPLATE', 'key': 'name', 'value': 'method'}, {'type': 'TEMPLATE', 'key': 'value', 'value': 'shop_genie'}]}
     ]})
@@ -179,7 +225,10 @@ def main():
     phone = clean_phone(loc.get('phone_number'))
     phone_lbl = str(loc.get('gads_phone_label') or '').strip()
     appt_label = str(loc.get('gads_appt_label') or '').strip()
-    appt_event, sched_label = get_scheduler(loc.get('scheduler_type')) if loc.get('scheduler_type') else (None, None)
+    sched = get_scheduler(loc.get('scheduler_type')) if loc.get('scheduler_type') else None
+    appt_event  = sched['event']              if sched else None
+    sched_label = sched['label']              if sched else None
+    sched_type  = sched.get('type', 'datalayer') if sched else None
 
     print(f'\n=== LNM GTM Setup: {gtm_id} ({loc["name"]}) ===')
     
@@ -228,8 +277,34 @@ def main():
     # 2. Triggers
     ap_tid, _ = ensure_trigger(service, acct_id, ctr_id, ws_id, {'name': 'All Pages', 'type': 'PAGEVIEW'}, existing_triggers, fr)
     appt_tid = None
-    if appt_event:
-        appt_tid, _ = ensure_trigger(service, acct_id, ctr_id, ws_id, {'name': f'CE - {sched_label} - Appointment Booked', 'type': 'CUSTOM_EVENT', 'customEventFilter': [{'type': 'EQUALS', 'parameter': [{'type': 'TEMPLATE', 'key': 'arg0', 'value': '{{_event}}'}, {'type': 'TEMPLATE', 'key': 'arg1', 'value': appt_event}]}]}, existing_triggers, fr)
+    is_ao = False
+    if appt_event and sched_type:
+        if sched_type == 'datalayer':
+            is_ao = appt_event.startswith('ao-')
+            appt_filter = {'type': 'MATCH_REGEX', 'parameter': [{'type': 'TEMPLATE', 'key': 'arg0', 'value': '{{_event}}'}, {'type': 'TEMPLATE', 'key': 'arg1', 'value': '^ao-'}]} if is_ao else {'type': 'EQUALS', 'parameter': [{'type': 'TEMPLATE', 'key': 'arg0', 'value': '{{_event}}'}, {'type': 'TEMPLATE', 'key': 'arg1', 'value': appt_event}]}
+            appt_tid, _ = ensure_trigger(service, acct_id, ctr_id, ws_id, {'name': f'CE - {sched_label} - Appointment Booked', 'type': 'CUSTOM_EVENT', 'customEventFilter': [appt_filter]}, existing_triggers, fr)
+
+        elif sched_type == 'postmessage':
+            # Listener Custom HTML tag fires on All Pages, pushes synthetic datalayer event when iframe posts its completion message
+            pm_listen = sched.get('postmessage_listen', '')
+            listener_js = (
+                f'<script>(function(){{'
+                f'if(window.__lnmPmListener_{sched_label.replace(" ","")}__)return;'
+                f'window.__lnmPmListener_{sched_label.replace(" ","")}__=true;'
+                f'window.addEventListener("message",function(e){{'
+                f'if(e.data==="{pm_listen}"){{'
+                f'window.dataLayer=window.dataLayer||[];'
+                f'window.dataLayer.push({{event:"{appt_event}"}});'
+                f'}}}});'
+                f'}})();</script>'
+            )
+            ensure_tag(service, acct_id, ctr_id, ws_id, {'name': f'LNM - {sched_label} Booking Listener', 'type': 'html', 'parameter': [{'type': 'TEMPLATE', 'key': 'html', 'value': listener_js}], 'firingTriggerId': [ap_tid]}, existing_tags, fr)
+            appt_tid, _ = ensure_trigger(service, acct_id, ctr_id, ws_id, {'name': f'CE - {sched_label} - Appointment Booked', 'type': 'CUSTOM_EVENT', 'customEventFilter': [{'type': 'EQUALS', 'parameter': [{'type': 'TEMPLATE', 'key': 'arg0', 'value': '{{_event}}'}, {'type': 'TEMPLATE', 'key': 'arg1', 'value': appt_event}]}]}, existing_triggers, fr)
+
+        elif sched_type == 'click_link':
+            click_url = sched.get('click_url_contains', '')
+            enable_builtin_variable(service, acct_id, ctr_id, ws_id, 'clickUrl')
+            appt_tid, _ = ensure_trigger(service, acct_id, ctr_id, ws_id, {'name': f'CL - {sched_label} - Appointment Link', 'type': 'LINK_CLICK', 'filter': [{'type': 'CONTAINS', 'parameter': [{'type': 'TEMPLATE', 'key': 'arg0', 'value': '{{Click URL}}'}, {'type': 'TEMPLATE', 'key': 'arg1', 'value': click_url}]}]}, existing_triggers, fr)
     cl_tid = None
     if phone:
         cl_tid, _ = ensure_trigger(service, acct_id, ctr_id, ws_id, {'name': f'CL - Phone Click - {phone}', 'type': 'LINK_CLICK', 'filter': [{'type': 'CONTAINS', 'parameter': [{'type': 'TEMPLATE', 'key': 'arg0', 'value': '{{Click URL}}'}, {'type': 'TEMPLATE', 'key': 'arg1', 'value': phone}]}]}, existing_triggers, fr)
@@ -245,7 +320,14 @@ def main():
     
     if ga4_id:
         ensure_tag(service, acct_id, ctr_id, ws_id, ga4_config_tag(ga4_id, ap_tid), existing_tags, fr)
-        if appt_tid: ensure_tag(service, acct_id, ctr_id, ws_id, ga4_event_tag(ga4_id, appt_event, appt_tid), existing_tags, fr)
+        if appt_tid:
+            if is_ao:
+                ga4_tag = ga4_event_tag(ga4_id, '{{_event}}', appt_tid, tag_name='GA4 - Event - AutoOps Events')
+            elif sched_type == 'click_link':
+                ga4_tag = ga4_event_tag(ga4_id, 'appointment_click', appt_tid, tag_name=f'GA4 - Event - {sched_label} Appointment Click')
+            else:
+                ga4_tag = ga4_event_tag(ga4_id, appt_event, appt_tid)
+            ensure_tag(service, acct_id, ctr_id, ws_id, ga4_tag, existing_tags, fr)
         ensure_tag(service, acct_id, ctr_id, ws_id, {'name': 'GA4 - Event - ai_overview_click', 'type': 'gaawe', 'parameter': [{'type': 'TAG_REFERENCE', 'key': 'gaSettings', 'value': 'GA4 - Configuration'}, {'type': 'TEMPLATE', 'key': 'eventName', 'value': 'ai_overview_click'}, {'type': 'TEMPLATE', 'key': 'measurementIdOverride', 'value': ga4_id}], 'firingTriggerId': [tf_tid]}, existing_tags, fr)
         ensure_tag(service, acct_id, ctr_id, ws_id, {'name': 'GA4 - Event - ai_referral', 'type': 'gaawe', 'parameter': [{'type': 'TAG_REFERENCE', 'key': 'gaSettings', 'value': 'GA4 - Configuration'}, {'type': 'TEMPLATE', 'key': 'eventName', 'value': 'ai_referral'}, {'type': 'TEMPLATE', 'key': 'measurementIdOverride', 'value': ga4_id}, {'type': 'LIST', 'key': 'eventParameters', 'list': [{'type': 'MAP', 'map': [{'type': 'TEMPLATE', 'key': 'name', 'value': 'ai_source'}, {'type': 'TEMPLATE', 'key': 'value', 'value': '{{JS - AI Referrer}}'}]}]}], 'firingTriggerId': [ar_tid]}, existing_tags, fr)
 

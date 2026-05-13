@@ -2,16 +2,10 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { GoogleAdsApi } from 'google-ads-api'
 import { fileURLToPath } from 'url'
 
-let _supabase: SupabaseClient | null = null
-
-function getSupabase(): SupabaseClient {
-  if (!_supabase) {
-    _supabase = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_KEY!
-    )
-  }
-  return _supabase
+function requireEnv(name: string): string {
+  const val = process.env[name]
+  if (!val) { console.error(`Missing required env var: ${name}`); process.exit(1) }
+  return val
 }
 
 export function buildGadsAccountName(
@@ -26,7 +20,15 @@ export function buildGadsAccountName(
 }
 
 async function run(): Promise<void> {
-  const supabase = getSupabase()
+  const supabaseUrl     = requireEnv('SUPABASE_URL')
+  const supabaseKey     = requireEnv('SUPABASE_SERVICE_KEY')
+  const clientId        = requireEnv('GADS_CLIENT_ID')
+  const clientSecret    = requireEnv('GADS_CLIENT_SECRET')
+  const developerToken  = requireEnv('GADS_DEVELOPER_TOKEN')
+  const mccCid          = requireEnv('GADS_MCC_CID')
+  const refreshToken    = requireEnv('GADS_REFRESH_TOKEN')
+
+  const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey)
 
   const { data: locations, error } = await supabase
     .from('locations')
@@ -45,14 +47,14 @@ async function run(): Promise<void> {
   }
 
   const gadsClient = new GoogleAdsApi({
-    client_id: process.env.GADS_CLIENT_ID!,
-    client_secret: process.env.GADS_CLIENT_SECRET!,
-    developer_token: process.env.GADS_DEVELOPER_TOKEN!,
+    client_id: clientId,
+    client_secret: clientSecret,
+    developer_token: developerToken,
   })
 
   const mccCustomer = gadsClient.Customer({
-    customer_id: process.env.GADS_MCC_CID!,
-    refresh_token: process.env.GADS_REFRESH_TOKEN!,
+    customer_id: mccCid,
+    refresh_token: refreshToken,
   })
 
   for (const loc of locations) {
@@ -75,7 +77,7 @@ async function run(): Promise<void> {
         .eq('id', loc.id)
 
       if (updateErr) {
-        console.error(`✗ DB update failed for "${loc.name}": ${updateErr.message}`)
+        console.error(`✗ DB update failed for "${loc.name}" (CID ${cid} WAS created — patch manually): ${updateErr.message}`)
       } else {
         console.log(`✓ ${loc.name} → CID ${cid}`)
       }

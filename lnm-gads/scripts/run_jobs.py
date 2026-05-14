@@ -18,7 +18,7 @@ load_dotenv()
 
 from src.services.database import DatabaseService
 
-PID_FILE      = ROOT / '.job_runner.pid'
+PID_FILE_BASE = ROOT / '.job_runner'
 POLL_INTERVAL = 5  # seconds between polls when idle
 FLUSH_LINES   = 8  # buffer N lines before writing to DB
 
@@ -34,7 +34,7 @@ GTM_TOKEN_DEFAULT = Path(os.environ.get('GTM_TOKEN_FILE', GTM_SCRIPTS / 'token_a
 LNM_CRM = Path(os.environ.get('LNM_CRM', ROOT.parent / 'lnm-crm'))
 
 
-def run_job(db: DatabaseService, job: dict) -> None:
+def run_job(db: DatabaseService, job: dict, track: str = "automation") -> None:
     loc_id      = str(job['id'])
     job_type    = job['automation_queued']
     gads_cid    = job.get('gads_cid')
@@ -44,21 +44,21 @@ def run_job(db: DatabaseService, job: dict) -> None:
     name     = job.get('name', loc_id)
 
     print(f"\n[run_jobs] {name} → {job_type}")
-    db.claim_automation(loc_id)
+    db.claim_automation(loc_id, track=track)
 
-    if job_type in ('gads_touch', 'gads_touch_dry'):
+    if job_type in ('gads_optimization', 'gads_optimization_dry', 'gads_touch', 'gads_touch_dry'):
         if not gads_cid:
-            db.append_automation_output(loc_id, '[error] no gads_cid on this location\n')
-            db.complete_automation(loc_id, 'failed')
+            db.append_automation_output(loc_id, '[error] no gads_cid on this location\n', track=track)
+            db.complete_automation(loc_id, 'failed', track=track)
             return
-        cmd = [sys.executable, 'main.py', 'touch', '--cid', str(gads_cid), '--location-id', loc_id]
-        if job_type == 'gads_touch_dry':
+        cmd = [sys.executable, 'main.py', 'optimize', '--cid', str(gads_cid), '--location-id', loc_id]
+        if job_type in ('gads_optimization_dry', 'gads_touch_dry'):
             cmd.append('--dry-run')
 
     elif job_type == 'gads_conv_setup':
         if not gads_cid:
-            db.append_automation_output(loc_id, '[error] no gads_cid on this location\n')
-            db.complete_automation(loc_id, 'failed')
+            db.append_automation_output(loc_id, '[error] no gads_cid on this location\n', track=track)
+            db.complete_automation(loc_id, 'failed', track=track)
             return
         cmd = [sys.executable, 'main.py', 'conv-setup', '--cid', str(gads_cid), '--name', name, '--location-id', loc_id]
 
@@ -74,8 +74,8 @@ def run_job(db: DatabaseService, job: dict) -> None:
 
     elif job_type == 'gtm_setup':
         if not gads_cid:
-            db.append_automation_output(loc_id, '[error] no gads_cid on this location\n')
-            db.complete_automation(loc_id, 'failed')
+            db.append_automation_output(loc_id, '[error] no gads_cid on this location\n', track=track)
+            db.complete_automation(loc_id, 'failed', track=track)
             return
         py = str(GTM_PYTHON) if GTM_PYTHON.exists() else sys.executable
         cmd = [py, str(GTM_SCRIPTS / 'setup_tags.py'), '--gads-cid', str(gads_cid),
@@ -83,8 +83,8 @@ def run_job(db: DatabaseService, job: dict) -> None:
 
     elif job_type == 'gtm_fix':
         if not gads_cid:
-            db.append_automation_output(loc_id, '[error] no gads_cid on this location\n')
-            db.complete_automation(loc_id, 'failed')
+            db.append_automation_output(loc_id, '[error] no gads_cid on this location\n', track=track)
+            db.complete_automation(loc_id, 'failed', track=track)
             return
         py = str(GTM_PYTHON) if GTM_PYTHON.exists() else sys.executable
         cmd = [py, str(GTM_SCRIPTS / 'setup_tags.py'), '--gads-cid', str(gads_cid),
@@ -96,49 +96,48 @@ def run_job(db: DatabaseService, job: dict) -> None:
 
     elif job_type == 'gtm_inject':
         if not gads_cid:
-            db.append_automation_output(loc_id, '[error] no gads_cid on this location\n')
-            db.complete_automation(loc_id, 'failed')
+            db.append_automation_output(loc_id, '[error] no gads_cid on this location\n', track=track)
+            db.complete_automation(loc_id, 'failed', track=track)
             return
         py = str(GTM_PYTHON) if GTM_PYTHON.exists() else sys.executable
         cmd = [py, str(GTM_SCRIPTS / 'inject_wordpress.py'), '--gads-cid', str(gads_cid), '--location-id', loc_id]
 
     elif job_type == 'competitor_sync':
         if not os.environ.get('GOOGLE_MAPS_API_KEY'):
-            db.append_automation_output(loc_id, '[error] GOOGLE_MAPS_API_KEY not set\n')
-            db.complete_automation(loc_id, 'failed')
+            db.append_automation_output(loc_id, '[error] GOOGLE_MAPS_API_KEY not set\n', track=track)
+            db.complete_automation(loc_id, 'failed', track=track)
             return
         cmd = [sys.executable, str(LNM_CRM / 'sync_competitors.py'), '--location-id', loc_id, '--force']
 
     elif job_type == 'transcribe_calls':
         if not cr_acct:
-            db.append_automation_output(loc_id, '[error] no callrail_account_id on this location\n')
-            db.complete_automation(loc_id, 'failed')
+            db.append_automation_output(loc_id, '[error] no callrail_account_id on this location\n', track=track)
+            db.complete_automation(loc_id, 'failed', track=track)
             return
         cr_company = job.get('callrail_company_id')
         if not cr_company:
-            db.append_automation_output(loc_id, '[error] no callrail_company_id on this location — cannot filter calls to correct location\n')
-            db.complete_automation(loc_id, 'failed')
+            db.append_automation_output(loc_id, '[error] no callrail_company_id on this location — cannot filter calls to correct location\n', track=track)
+            db.complete_automation(loc_id, 'failed', track=track)
             return
         cmd = [sys.executable, str(LNM_CRM / 'transcribe_calls.py'),
                '--account-id', str(cr_acct), '--company-id', str(cr_company),
                '--location-id', loc_id, '--days-back', '30']
-
     elif job_type == 'ga4_hybrid_pull':
         cmd = [sys.executable, 'scripts/hybrid_ga4_finder.py', '--location-id', loc_id]
 
     elif job_type == 'gads_pull':
         if not gads_cid:
-            db.append_automation_output(loc_id, '[error] no gads_cid on this location\n')
-            db.complete_automation(loc_id, 'failed')
+            db.append_automation_output(loc_id, '[error] no gads_cid on this location\n', track=track)
+            db.complete_automation(loc_id, 'failed', track=track)
             return
         cmd = [sys.executable, 'main.py', 'pull', '--cid', str(gads_cid), '--location-id', loc_id]
 
     else:
-        db.append_automation_output(loc_id, f'[error] unknown job type: {job_type}\n')
-        db.complete_automation(loc_id, 'failed')
+        db.append_automation_output(loc_id, f'[error] unknown job type: {job_type}\n', track=track)
+        db.complete_automation(loc_id, 'failed', track=track)
         return
 
-    db.append_automation_output(loc_id, f'$ {" ".join(cmd)}\n')
+    db.append_automation_output(loc_id, f'$ {" ".join(cmd)}\n', track=track)
 
     # Determine best CWD based on command
     run_cwd = str(ROOT)
@@ -161,58 +160,73 @@ def run_job(db: DatabaseService, job: dict) -> None:
         print(line, end='')
         buf.append(line)
         if len(buf) >= FLUSH_LINES:
-            db.append_automation_output(loc_id, ''.join(buf))
+            db.append_automation_output(loc_id, ''.join(buf), track=track)
             buf.clear()
 
     if buf:
-        db.append_automation_output(loc_id, ''.join(buf))
+        db.append_automation_output(loc_id, ''.join(buf), track=track)
 
     proc.wait()
     exit_line = f'[exit {proc.returncode}]\n'
     print(exit_line, end='')
-    db.append_automation_output(loc_id, exit_line)
+    db.append_automation_output(loc_id, exit_line, track=track)
 
-    if job_type == 'gads_touch_dry':
+    if job_type in ('gads_optimization_dry', 'gads_touch_dry'):
         status = 'dry_done' if proc.returncode == 0 else 'failed'
     else:
         status = 'done' if proc.returncode == 0 else 'failed'
-    db.complete_automation(loc_id, status, gads_cid=gads_cid if job_type in ('gads_touch', 'gads_touch_dry') else None)
+    db.complete_automation(loc_id, status, gads_cid=gads_cid if job_type in ('gads_optimization', 'gads_optimization_dry', 'gads_touch', 'gads_touch_dry') else None, track=track)
     print(f"[run_jobs] {name} → {status}")
 
 
-def check_lock():
-    if PID_FILE.exists():
+def check_lock(pid_file: Path):
+    if pid_file.exists():
         try:
-            old_pid = int(PID_FILE.read_text().strip())
-            os.kill(old_pid, 0)  # Check if process is still alive
+            old_pid = int(pid_file.read_text().strip())
+            os.kill(old_pid, 0)
             print(f"[run_jobs] Error: Another instance is already running (PID {old_pid}).")
             sys.exit(1)
         except (ValueError, ProcessLookupError, PermissionError):
-            PID_FILE.unlink()  # PID file is stale
+            pid_file.unlink()
 
-    PID_FILE.write_text(str(os.getpid()))
+    pid_file.write_text(str(os.getpid()))
 
 
 def main() -> None:
-    check_lock()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--lnm-acct', default=None,
+                        help='Only process jobs for this gtm_lnm_acct value (enables parallel runners)')
+    parser.add_argument('--track', default='automation',
+                        help='Job track: automation (default) or recurring')
+    args = parser.parse_args()
+
+    slug = (args.lnm_acct.split('@')[0] if args.lnm_acct else 'default') + '.' + args.track
+    pid_file = Path(str(PID_FILE_BASE) + f'.{slug}.pid')
+
+    check_lock(pid_file)
     db = DatabaseService()
     if not db.enabled:
         print("[run_jobs] DB_ENABLED is not true — set it in .env and retry.")
         sys.exit(1)
 
     db.init_tables()
-    print("[run_jobs] Watching for automation jobs… (Ctrl+C to stop)")
+    track = args.track
+    label = f" [{args.lnm_acct}]" if args.lnm_acct else ""
+    if track != 'automation':
+        label += f" [track:{track}]"
+    print(f"[run_jobs]{label} Watching for automation jobs… (Ctrl+C to stop)")
 
     try:
         while True:
-            job = db.get_queued_automation()
+            job = db.get_queued_automation(lnm_acct=args.lnm_acct, track=track)
             if job:
-                run_job(db, job)
+                run_job(db, job, track=track)
             else:
                 time.sleep(POLL_INTERVAL)
     finally:
-        if PID_FILE.exists():
-            PID_FILE.unlink()
+        if pid_file.exists():
+            pid_file.unlink()
 
 
 if __name__ == '__main__':

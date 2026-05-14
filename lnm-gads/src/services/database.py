@@ -36,16 +36,6 @@ class DatabaseService:
 
     # ── Location lookup helpers ───────────────────────────────────────────────
 
-    def get_location_by_id(self, loc_id: str) -> dict | None:
-        if not self.enabled:
-            return None
-        try:
-            res = self.client.table("locations").select("*").eq("id", loc_id).limit(1).execute()
-            return res.data[0] if res.data else None
-        except Exception as e:
-            print(f"Error fetching location for id {loc_id}: {e}")
-            return None
-
     def get_location_by_cid(self, gads_cid: str) -> dict | None:
         if not self.enabled:
             return None
@@ -54,6 +44,16 @@ class DatabaseService:
             return res.data[0] if res.data else None
         except Exception as e:
             print(f"Error fetching location for cid {gads_cid}: {e}")
+            return None
+
+    def get_pod_by_id(self, pod_id: str) -> dict | None:
+        if not self.enabled:
+            return None
+        try:
+            res = self.client.table("pods").select("id, name, css_email, ads_email").eq("id", str(pod_id)).limit(1).execute()
+            return res.data[0] if res.data else None
+        except Exception as e:
+            print(f"Error fetching pod {pod_id}: {e}")
             return None
 
     def get_location_by_url(self, url: str) -> dict | None:

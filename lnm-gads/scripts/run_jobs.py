@@ -121,7 +121,7 @@ def run_job(db: DatabaseService, job: dict, track: str = "automation") -> None:
             return
         cmd = [sys.executable, str(LNM_CRM / 'transcribe_calls.py'),
                '--account-id', str(cr_acct), '--company-id', str(cr_company),
-               '--location-id', loc_id, '--days-back', '30']
+               '--location-id', loc_id, '--days-back', '30', '--model', 'small.en']
     elif job_type == 'ga4_hybrid_pull':
         cmd = [sys.executable, 'scripts/hybrid_ga4_finder.py', '--location-id', loc_id]
 

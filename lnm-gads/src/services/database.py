@@ -7,6 +7,14 @@ from supabase import create_client, Client
 
 load_dotenv()
 
+TRACK_JOB_TYPES: dict[str, list[str]] = {
+    'recurring':  ['gads_optimization', 'gads_optimization_dry', 'gads_touch', 'gads_touch_dry'],
+    'transcribe': ['transcribe_calls'],
+    'setup':      ['gtm_setup', 'gtm_fix', 'gtm_inject', 'gads_conv_setup'],
+    'pulls':      ['ga4_hybrid_pull', 'gads_pull', 'gtm_build_cache', 'competitor_sync', 'callrail_30d', 'callrail_2d'],
+    'pod':        ['gads_optimization', 'gads_optimization_dry', 'gads_touch', 'gads_touch_dry'],
+}
+
 class DatabaseService:
     def __init__(self):
         self.enabled = os.getenv("DB_ENABLED", "false").lower() == "true"
@@ -325,12 +333,18 @@ class DatabaseService:
 
     # ── Automation job queue (via locations columns) ─────────────────────────
 
+
     def get_queued_automation(self, lnm_acct=None, track=None) -> dict | None:
         if not self.enabled:
             return None
         try:
-            res = self.client.table("locations").select("id, name, gads_cid, callrail_account_id, callrail_company_id, gtm_id, gtm_lnm_acct, automation_queued") \
-                .not_.is_("automation_queued", "null").order("updated_at").limit(1).execute()
+            q = self.client.table("locations").select("id, name, gads_cid, callrail_account_id, callrail_company_id, gtm_id, gtm_lnm_acct, automation_queued") \
+                .not_.is_("automation_queued", "null")
+            if track and track in TRACK_JOB_TYPES:
+                q = q.in_("automation_queued", TRACK_JOB_TYPES[track])
+            if lnm_acct:
+                q = q.eq("gtm_lnm_acct", lnm_acct)
+            res = q.order("updated_at").limit(1).execute()
             return res.data[0] if res.data else None
         except Exception as e:
             print(f"Error fetching queued automation: {e}")
@@ -386,3 +400,27 @@ class DatabaseService:
         except Exception as e:
             print(f"Error fetching issues for {customer_id}: {e}")
             return []
+
+    # ── Search term logging ──────────────────────────────────────────────────
+
+    def bulk_upsert_search_terms(self, rows: list[dict]) -> None:
+        """Upsert search term observations. rows: list of dicts with keys:
+        location_id, gads_cid, term, run_date, impressions, clicks, cost_micros, conversions"""
+        if not self.enabled or not rows:
+            return
+        try:
+            self.client.table("search_term_log").upsert(
+                rows, on_conflict="gads_cid,term,run_date"
+            ).execute()
+        except Exception as e:
+            print(f"Error upserting search terms: {e}")
+
+    def bulk_insert_negative_history(self, rows: list[dict]) -> None:
+        """Insert negative keyword audit records. rows: list of dicts with keys:
+        location_id, gads_cid, term, match_type, level, reason, is_dry_run"""
+        if not self.enabled or not rows:
+            return
+        try:
+            self.client.table("negative_history").insert(rows).execute()
+        except Exception as e:
+            print(f"Error inserting negative history: {e}")

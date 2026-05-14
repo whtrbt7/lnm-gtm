@@ -134,6 +134,9 @@ DISQUALIFY_KEYWORDS = [
     'press 1', 'press one', 'robocall', 'debt collection', 'collections',
     'insurance claim', 'total loss', 'no fault', 'body shop', 'collision center',
     'credit card', 'loan', 'solar', 'yelp advertising', 'google advertising',
+    'sales representative', 'sales rep', 'i am calling to offer', "i'm calling to offer",
+    'on behalf of', 'i represent', 'reaching out to offer', 'business solution',
+    'marketing services', 'seo services', 'web design', 'we provide',
 ]
 
 TOW_KEYWORDS = [
@@ -179,7 +182,7 @@ def extract_repair_category(text: str) -> list[str]:
     for category, keywords in REPAIR_CATEGORIES.items():
         if category in seen:
             continue
-        if any(kw in low for kw in keywords):
+        if any(_kw_match(kw, low) for kw in keywords):
             matched.append(category)
             seen.add(category)
     return matched
@@ -187,12 +190,16 @@ def extract_repair_category(text: str) -> list[str]:
 
 # ── Keyword scoring ───────────────────────────────────────────────────────────
 
+def _kw_match(kw, text):
+    """Whole-word match so 'tow' doesn't hit 'downtown'."""
+    return bool(re.search(r'(?<![\w])' + re.escape(kw) + r'(?![\w])', text))
+
 def score_transcript(text, is_new_caller=False):
     low = text.lower()
-    lead_hits       = [kw for kw in LEAD_KEYWORDS    if kw in low]
-    disqualify_hits = [kw for kw in DISQUALIFY_KEYWORDS if kw in low]
-    tow_hit         = any(kw in low for kw in TOW_KEYWORDS)
-    tow_hits        = [kw for kw in TOW_KEYWORDS if kw in low]
+    lead_hits       = [kw for kw in LEAD_KEYWORDS       if _kw_match(kw, low)]
+    disqualify_hits = [kw for kw in DISQUALIFY_KEYWORDS if _kw_match(kw, low)]
+    tow_hit         = any(_kw_match(kw, low) for kw in TOW_KEYWORDS)
+    tow_hits        = [kw for kw in TOW_KEYWORDS        if _kw_match(kw, low)]
 
     net_score = len(lead_hits) - 2 * len(disqualify_hits)
     if tow_hit:
@@ -254,19 +261,19 @@ def build_note(transcript, score_result, duration_sec, caller_number, direction,
         flags.append('Cust-only')
     flag_str = ' · '.join(flags)
 
-    header_parts = [f'[LNM] {status} · {score}pts · {repair_str}']
+    footer_parts = [f'LNM · {status} · {score}pts · {repair_str}']
     if flag_str:
-        header_parts.append(flag_str)
-    header_parts.append(duration)
-    header = ' · '.join(header_parts)
+        footer_parts.append(flag_str)
+    footer_parts.append(duration)
+    footer = '[' + ' · '.join(footer_parts) + ']'
 
     excerpt = extract_key_sentence(transcript, score_result['lead_keywords'] + score_result['disqualify_keywords'])
     # Trim excerpt so total note stays under 500 chars
-    max_excerpt = 500 - len(header) - 3  # 3 for newline + quotes
+    max_excerpt = 500 - len(footer) - 3  # 3 for newline + quotes
     if len(excerpt) > max_excerpt:
         excerpt = excerpt[:max_excerpt - 1].rstrip() + '…'
 
-    return f'{header}\n"{excerpt}"'
+    return f'"{excerpt}"\n{footer}'
 
 
 # ── CallRail API ──────────────────────────────────────────────────────────────
@@ -337,7 +344,7 @@ def push_note_to_callrail(account_id, call_id, note, qualified):
 def fetch_calls(account_id, start_date, page=1, company_id=None):
     params = {
         'start_date': start_date,
-        'fields':     'recording,recording_player,duration,company_id,company_name',
+        'fields':     'recording,recording_player,duration,company_id,company_name,customer_phone_number,customer_name,direction,start_time,tracking_phone_number',
         'per_page':   100,
         'page':       page,
         'sort':       'start_time',
@@ -419,11 +426,13 @@ def find_location_id(callrail_account_id):
 
 def upsert_transcript(row):
     r = requests.post(
-        f'{SUPABASE_URL}/rest/v1/call_transcripts',
+        f'{SUPABASE_URL}/rest/v1/call_transcripts?on_conflict=call_id',
         headers={**SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal'},
         json=row,
-        timeout=15,
+        timeout=45,
     )
+    if r.status_code == 409:
+        return True  # already exists
     if r.status_code not in (200, 201, 204):
         print(f'  [db error] {r.status_code}: {r.text[:200]}')
         return False
@@ -460,13 +469,30 @@ def split_stereo(audio_path, tmpdir):
     )
     return left, right
 
+SHOP_CHANNEL_PATTERNS = SHOP_GREETING_PATTERNS + [
+    'let me check', 'hold on', 'hold please', 'one moment', 'give me a second',
+    'what can i do for you', 'what seems to be the problem', 'how may i',
+    'we can get you in', "we'll get you in", 'our next available',
+    'let me look', 'does that work for you', 'go ahead and', 'bring it in',
+]
 
-def identify_shop_channel(left_text, right_text):
-    """Return 'left' or 'right' for whichever channel is the shop employee."""
-    def greeting_score(t):
+def identify_shop_channel(left_text, right_text, left_segs=None, right_segs=None):
+    """Return 'left' or 'right' for whichever channel is the shop employee.
+    Shop phrase scoring; on tie, first-speaker wins (shop answers the call).
+    """
+    def shop_score(t):
         low = t.lower()
-        return sum(1 for p in SHOP_GREETING_PATTERNS if p in low)
-    return 'left' if greeting_score(left_text) >= greeting_score(right_text) else 'right'
+        return sum(1 for p in SHOP_CHANNEL_PATTERNS if p in low)
+    ls, rs = shop_score(left_text), shop_score(right_text)
+    if ls != rs:
+        return 'left' if ls > rs else 'right'
+    # Tiebreak: shop speaks first (answers the call)
+    if left_segs and right_segs:
+        l_start = left_segs[0]['start']  if left_segs  else float('inf')
+        r_start = right_segs[0]['start'] if right_segs else float('inf')
+        return 'left' if l_start <= r_start else 'right'
+    # Final fallback: more text = more likely shop
+    return 'left' if len(left_text) >= len(right_text) else 'right'
 
 
 # ── Transcription ─────────────────────────────────────────────────────────────
@@ -498,7 +524,7 @@ def transcribe(audio_path, model_name):
             left_text,  left_segs  = transcribe_file(left_path,  model)
             right_text, right_segs = transcribe_file(right_path, model)
 
-            shop_side = identify_shop_channel(left_text, right_text)
+            shop_side = identify_shop_channel(left_text, right_text, left_segs, right_segs)
             if shop_side == 'left':
                 shop_text, customer_text = left_text,  right_text
                 customer_segs = right_segs
@@ -528,7 +554,7 @@ def main():
     parser.add_argument('--company-id',  default=None, help='CallRail company ID to filter calls')
     parser.add_argument('--location-id', default=None, help='Supabase location UUID (skips DB lookup)')
     parser.add_argument('--days-back',   type=int, default=30)
-    parser.add_argument('--model',       default='tiny.en', help='tiny.en | base.en | medium.en')
+    parser.add_argument('--model',       default='small.en', help='tiny.en | base.en | medium.en')
     args = parser.parse_args()
 
     if FFMPEG:

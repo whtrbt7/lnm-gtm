@@ -27,6 +27,12 @@ function fmtRelative(ts) {
   return `${d}d ago`
 }
 
+function fmtDate(ts) {
+  if (!ts) return null
+  const dt = new Date(ts)
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 function healthColor(lastGads, lastCR) {
   const worst = Math.max(touchBucket(lastGads), touchBucket(lastCR))
   return TOUCH_BUCKETS[worst].color
@@ -217,6 +223,57 @@ function DomainBadge({ websites }) {
   )
 }
 
+// ── Billing alert badge ────────────────────────────────────────────────────
+const ALERT_ICONS = {
+  account_suspended: { icon: '🔴', label: 'Account Suspended',       color: '#ef4444' },
+  billing_cancelled: { icon: '🔴', label: 'Billing Not Active',       color: '#ef4444' },
+  card_expiring:     { icon: '🟡', label: 'Credit Card Expiring',     color: '#f59e0b' },
+  conversion_gap:    { icon: '🟠', label: 'Conversion Tracking Gap',  color: '#f97316' },
+}
+
+function BillingAlertBadges({ alerts }) {
+  const [open, setOpen] = useState(false)
+  if (!alerts?.length) return null
+  const worst = alerts.some(a => a.alert_type === 'account_suspended' || a.alert_type === 'billing_cancelled')
+    ? 'error' : alerts.some(a => a.alert_type === 'card_expiring') ? 'warn' : 'info'
+  const dot = worst === 'error' ? '#ef4444' : worst === 'warn' ? '#f59e0b' : '#f97316'
+  const hasCall = alerts.some(a => a.phone_call_flagged)
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 3 }}
+      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 6px', borderRadius: 8,
+        background: `${dot}22`, color: dot, border: `1px solid ${dot}55`, cursor: 'default' }}>
+        {hasCall ? '📞 ' : ''}{alerts.length} alert{alerts.length > 1 ? 's' : ''}
+      </span>
+      {open && (
+        <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: 0,
+          background: 'var(--surface-3)', border: '1px solid var(--border)', borderRadius: 6,
+          padding: '8px 12px', whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+          zIndex: 200, pointerEvents: 'none', minWidth: 220 }}>
+          {alerts.map((a, i) => {
+            const cfg = ALERT_ICONS[a.alert_type] ?? { icon: '⚠️', label: a.alert_type, color: '#f97316' }
+            const d   = a.alert_data ?? {}
+            let detail = ''
+            if (a.alert_type === 'card_expiring')   detail = `expires ${d.expiry_month}/${d.expiry_year} · ${d.days_until}d`
+            if (a.alert_type === 'conversion_gap')  detail = `$${d.spend_7d} spend · 0 convs`
+            if (a.alert_type === 'account_suspended') detail = 'suspended by Google'
+            return (
+              <div key={i} style={{ fontSize: 11, marginBottom: 5, color: cfg.color }}>
+                {cfg.icon} <strong>{cfg.label}</strong>
+                {detail && <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}> · {detail}</span>}
+                {a.phone_call_flagged && <span style={{ color: '#ef4444' }}> · 📞 call client</span>}
+              </div>
+            )
+          })}
+          <div style={{ position: 'absolute', top: '100%', left: 14, transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '5px solid var(--border)' }} />
+          <div style={{ position: 'absolute', top: '100%', left: 14, transform: 'translateX(-50%) translateY(-1px)', width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '4px solid var(--surface-3)' }} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Pod badge ──────────────────────────────────────────────────────────────
 function PodBadge({ account }) {
   const [open, setOpen] = useState(false)
@@ -269,7 +326,7 @@ function inBucket(ts, filter) {
 }
 
 export default function GadsMaintenancePage() {
-  const { accounts, podLocIds, loading, error } = useGadsMaintenance()
+  const { accounts, podLocIds, podTranscribeLocIds, loading, error } = useGadsMaintenance()
 
   // Pod run state — pod_id → { queuing, total, done, error }
   const [podRunState,        setPodRunState]        = useState({})
@@ -287,7 +344,7 @@ export default function GadsMaintenancePage() {
 
     supabase
       .from('locations')
-      .select('id, pod_status, automation_status')
+      .select('id, automation_status')
       .in('id', allLocIds)
       .then(({ data }) => {
         if (!data) return
@@ -295,14 +352,14 @@ export default function GadsMaintenancePage() {
         Object.entries(podLocIds).forEach(([podId, { locIds }]) => {
           const rows = locIds.map(id => byId[id]).filter(Boolean)
 
-          const podPending = rows.some(r => r.pod_status === 'pending')
+          const podPending = rows.some(r => r.automation_status === 'pending' || r.automation_status === 'running')
           if (podPending) {
-            const done = rows.filter(r => r.pod_status === 'done' || r.pod_status === 'failed').length
+            const done = rows.filter(r => r.automation_status === 'done' || r.automation_status === 'failed').length
             setPodRunState(prev => ({ ...prev, [podId]: { queuing: false, total: locIds.length, done, error: null } }))
-            startProgressPoll(podId, locIds, 'pod_status', setPodRunState)
+            startProgressPoll(podId, locIds, 'automation_status', setPodRunState)
           }
 
-          const txPending = rows.some(r => r.automation_status === 'pending')
+          const txPending = rows.some(r => r.automation_status === 'pending' || r.automation_status === 'running')
           if (txPending) {
             const done = rows.filter(r => r.automation_status === 'done' || r.automation_status === 'failed').length
             setPodTranscribeState(prev => ({ ...prev, [podId]: { queuing: false, total: locIds.length, done, error: null } }))
@@ -337,53 +394,59 @@ export default function GadsMaintenancePage() {
     setPodRunState(prev => ({ ...prev, [podId]: { queuing: true, total: locIds.length, done: 0, error: null } }))
     const { error } = await supabase
       .from('locations')
-      .update({ pod_queued: 'gads_touch', pod_status: 'pending', pod_output: '' })
+      .update({ automation_queued: 'gads_touch', automation_status: 'pending', automation_output: '', last_gads_touched_at: new Date().toISOString() })
       .in('id', locIds)
     if (error) {
       setPodRunState(prev => ({ ...prev, [podId]: { queuing: false, total: locIds.length, done: 0, error: error.message } }))
     } else {
       setPodRunState(prev => ({ ...prev, [podId]: { queuing: false, total: locIds.length, done: 0, error: null } }))
-      startProgressPoll(podId, locIds, 'pod_status', setPodRunState)
+      startProgressPoll(podId, locIds, 'automation_status', setPodRunState)
     }
   }
 
   async function runAll() {
-    const allLocIds = Object.values(podLocIds).flatMap(p => p.locIds)
-    if (allLocIds.length === 0) return
+    const allLocIds           = Object.values(podLocIds).flatMap(p => p.locIds)
+    const allTranscribeLocIds = Object.values(podTranscribeLocIds).flatMap(p => p.locIds)
+    if (allLocIds.length === 0 && allTranscribeLocIds.length === 0) return
 
     const podInit = {}
     const txInit  = {}
     Object.entries(podLocIds).forEach(([podId, { locIds }]) => {
       podInit[podId] = { queuing: false, total: locIds.length, done: 0, error: null }
+    })
+    Object.entries(podTranscribeLocIds).forEach(([podId, { locIds }]) => {
       txInit[podId]  = { queuing: false, total: locIds.length, done: 0, error: null }
     })
 
     const [podRes, txRes] = await Promise.all([
-      supabase.from('locations')
-        .update({ pod_queued: 'gads_touch', pod_status: 'pending', pod_output: '' })
-        .in('id', allLocIds),
-      supabase.from('locations')
-        .update({ automation_queued: 'transcribe_calls', automation_status: 'pending', automation_output: '' })
-        .in('id', allLocIds)
-        .not('callrail_account_id', 'is', null),
+      allLocIds.length > 0
+        ? supabase.from('locations')
+            .update({ automation_queued: 'gads_touch', automation_status: 'pending', automation_output: '', last_gads_touched_at: new Date().toISOString() })
+            .in('id', allLocIds)
+        : { error: null },
+      allTranscribeLocIds.length > 0
+        ? supabase.from('locations')
+            .update({ automation_queued: 'transcribe_calls', automation_status: 'pending', automation_output: '' })
+            .in('id', allTranscribeLocIds)
+        : { error: null },
     ])
 
     if (!podRes.error) {
       setPodRunState(podInit)
       Object.entries(podLocIds).forEach(([podId, { locIds }]) => {
-        startProgressPoll(podId, locIds, 'pod_status', setPodRunState)
+        startProgressPoll(podId, locIds, 'automation_status', setPodRunState)
       })
     }
     if (!txRes.error) {
       setPodTranscribeState(txInit)
-      Object.entries(podLocIds).forEach(([podId, { locIds }]) => {
+      Object.entries(podTranscribeLocIds).forEach(([podId, { locIds }]) => {
         startProgressPoll(podId, locIds, 'automation_status', setPodTranscribeState)
       })
     }
   }
 
   async function runPodTranscribe(podId) {
-    const podInfo = podLocIds[podId]
+    const podInfo = podTranscribeLocIds[podId]
     if (!podInfo || podInfo.locIds.length === 0) return
     const { locIds } = podInfo
     setPodTranscribeState(prev => ({ ...prev, [podId]: { queuing: true, total: locIds.length, done: 0, error: null } }))
@@ -454,10 +517,34 @@ export default function GadsMaintenancePage() {
         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-dim)' }}>{filtered.length} of {accounts.length} accounts</span>
       </div>
 
+      {/* Billing alert summary strip */}
+      {(() => {
+        const allAlerts = accounts.flatMap(a => a.billing_alerts ?? [])
+        if (allAlerts.length === 0) return null
+        const counts = {}
+        let phoneCalls = 0
+        for (const a of allAlerts) {
+          counts[a.alert_type] = (counts[a.alert_type] ?? 0) + 1
+          if (a.phone_call_flagged) phoneCalls++
+        }
+        return (
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center',
+            background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.25)',
+            borderRadius: 'var(--radius-md)', padding: '10px 16px' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '.06em', marginRight: 4 }}>Billing Alerts</span>
+            {counts.account_suspended > 0 && <span style={{ fontSize: 11, color: '#ef4444' }}>🔴 {counts.account_suspended} suspended</span>}
+            {counts.billing_cancelled > 0 && <span style={{ fontSize: 11, color: '#ef4444' }}>🔴 {counts.billing_cancelled} billing inactive</span>}
+            {counts.card_expiring    > 0 && <span style={{ fontSize: 11, color: '#f59e0b' }}>🟡 {counts.card_expiring} card expiring</span>}
+            {counts.conversion_gap   > 0 && <span style={{ fontSize: 11, color: '#f97316' }}>🟠 {counts.conversion_gap} conv gap</span>}
+            {phoneCalls > 0 && <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 700, marginLeft: 'auto' }}>📞 {phoneCalls} need client call</span>}
+          </div>
+        )
+      })()}
+
       {/* Side-by-side donuts with pod toggles */}
       <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
         <TouchDonut
-          title="GAds Touch"
+          title="GAds Optimization"
           values={gadsBuckets}
           total={gadsChartAccounts.length}
           pods={pods}
@@ -465,7 +552,7 @@ export default function GadsMaintenancePage() {
           onPodChange={setGadsPod}
         />
         <TouchDonut
-          title="CallRail Touch"
+          title="CallRail Optimization"
           values={crBuckets}
           total={crChartAccounts.length}
           pods={pods}
@@ -548,7 +635,7 @@ export default function GadsMaintenancePage() {
             <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.07em', color: 'var(--text-dim)', marginRight: 4, minWidth: 80 }}>Transcribe</span>
             {pods.map(p => {
               const prs      = podTranscribeState[p.id]
-              const locs     = podLocIds[p.id]?.locIds ?? []
+              const locs     = podTranscribeLocIds[p.id]?.locIds ?? []
               const busy     = prs?.queuing
               const complete = prs && !busy && prs.done >= prs.total
               const pct      = prs ? Math.round((prs.done / prs.total) * 100) : 0
@@ -653,7 +740,10 @@ export default function GadsMaintenancePage() {
               )}
 
               {/* Primary domain badge + hover tooltip */}
-              <DomainBadge websites={a.websites} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <DomainBadge websites={a.websites} />
+                <BillingAlertBadges alerts={a.billing_alerts} />
+              </div>
 
               {/* Pod + touch indicators */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTop: `1px solid color-mix(in oklch, ${hColor} 20%, var(--border-muted))` }}>
@@ -663,11 +753,13 @@ export default function GadsMaintenancePage() {
                     <span style={{ fontSize: 9, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '.04em' }}>GAds</span>
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: gadsColor }} />
                     <span style={{ fontSize: 11, fontWeight: 700, color: gadsColor }}>{fmtRelative(a.lastGadsTouched)}</span>
+                    {fmtDate(a.lastGadsTouched) && <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>{fmtDate(a.lastGadsTouched)}</span>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ fontSize: 9, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '.04em' }}>CR</span>
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: crColor }} />
                     <span style={{ fontSize: 11, fontWeight: 700, color: crColor }}>{fmtRelative(a.lastCallrailTouched)}</span>
+                    {fmtDate(a.lastCallrailTouched) && <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>{fmtDate(a.lastCallrailTouched)}</span>}
                   </div>
                 </div>
               </div>

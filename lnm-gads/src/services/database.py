@@ -325,7 +325,7 @@ class DatabaseService:
 
     # ── Automation job queue (via locations columns) ─────────────────────────
 
-    def get_queued_automation(self) -> dict | None:
+    def get_queued_automation(self, lnm_acct=None, track=None) -> dict | None:
         if not self.enabled:
             return None
         try:
@@ -336,7 +336,7 @@ class DatabaseService:
             print(f"Error fetching queued automation: {e}")
             return None
 
-    def claim_automation(self, location_id: str) -> None:
+    def claim_automation(self, location_id: str, track=None) -> None:
         if not self.enabled:
             return
         try:
@@ -348,7 +348,7 @@ class DatabaseService:
         except Exception as e:
             print(f"Error claiming automation for {location_id}: {e}")
 
-    def append_automation_output(self, location_id: str, text: str) -> None:
+    def append_automation_output(self, location_id: str, text: str, track=None) -> None:
         if not self.enabled:
             return
         # Note: Real-time append is tricky with REST. 
@@ -361,7 +361,7 @@ class DatabaseService:
         except Exception as e:
             print(f"Error appending automation output for {location_id}: {e}")
 
-    def complete_automation(self, location_id: str, status: str, gads_cid: str | None = None) -> None:
+    def complete_automation(self, location_id: str, status: str, gads_cid: str | None = None, track=None) -> None:
         if not self.enabled:
             return
         try:

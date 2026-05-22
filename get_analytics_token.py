@@ -1,10 +1,6 @@
 """
 One-time script to generate OAuth credentials for analytics@leadsnearme.com.
-Run this, log in with analytics@leadsnearme.com in the browser window that opens,
-then grant permissions. Token is saved to token_analytics.json.
-
-Usage:
-    python get_analytics_token.py
+Usage: python get_analytics_token.py
 """
 
 import json
@@ -18,15 +14,23 @@ CLIENT_SECRET = os.path.join(
 )
 TOKEN_OUT = os.path.join(SCRIPT_DIR, 'token_analytics.json')
 
+# Expanded scopes to cover every possibility for creation/publishing
 SCOPES = [
     'https://www.googleapis.com/auth/tagmanager.manage.accounts',
     'https://www.googleapis.com/auth/tagmanager.edit.containers',
+    'https://www.googleapis.com/auth/tagmanager.delete.containers',
+    'https://www.googleapis.com/auth/tagmanager.edit.containerversions',
     'https://www.googleapis.com/auth/tagmanager.manage.users',
+    'https://www.googleapis.com/auth/tagmanager.publish',
 ]
 
-print('Opening browser for OAuth login...')
-print('IMPORTANT: Log in with analytics@leadsnearme.com')
+print(f'Opening browser for OAuth login...')
+print(f'IMPORTANT: Log in with analytics@leadsnearme.com')
 print()
+
+# Delete old token to ensure a fresh flow with new scopes
+if os.path.exists(TOKEN_OUT):
+    os.remove(TOKEN_OUT)
 
 flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRET, SCOPES)
 creds = flow.run_local_server(
@@ -40,5 +44,3 @@ with open(TOKEN_OUT, 'w') as f:
     json.dump(token_data, f, indent=2)
 
 print(f'\nToken saved to {TOKEN_OUT}')
-print('You can now run:')
-print('  python push_gtm_setup.py --tier 3 --token-file token_analytics.json --rebuild-index')

@@ -125,6 +125,49 @@ def find_container_by_gtm_id(service, gtm_public_id):
     raise RuntimeError(f'Container {gtm_public_id} not found in any accessible GTM account.')
 
 
+LNM_SERVICE_ACCOUNTS = [
+    'reports@leadsnearme.com',
+    'analytics@leadsnearme.com',
+    'analytics2@leadsnearme.com',
+]
+
+def grant_lnm_access(service, acct: str):
+    """Ensure all 3 LNM service accounts have admin+publish on every container in acct."""
+    containers = _api_call_with_retry(lambda: service.accounts().containers().list(
+        parent=f'accounts/{acct}'
+    ).execute()).get('container', [])
+
+    existing_perms = _api_call_with_retry(lambda: service.accounts().user_permissions().list(
+        parent=f'accounts/{acct}'
+    ).execute()).get('userPermission', [])
+
+    perm_map = {p.get('emailAddress', '').lower(): p for p in existing_perms}
+
+    for email in LNM_SERVICE_ACCOUNTS:
+        desired = {
+            'emailAddress': email,
+            'accountAccess': {'permission': 'admin'},
+            'containerAccess': [
+                {'containerId': c['containerId'], 'permission': 'publish'}
+                for c in containers
+            ],
+        }
+        existing = perm_map.get(email.lower())
+        try:
+            if existing:
+                desired['path'] = existing['path']
+                _api_call_with_retry(lambda: service.accounts().user_permissions().update(
+                    path=existing['path'], body=desired,
+                ).execute())
+            else:
+                _api_call_with_retry(lambda: service.accounts().user_permissions().create(
+                    parent=f'accounts/{acct}', body=desired,
+                ).execute())
+            print(f'  ✓ Granted admin+publish → {email}')
+        except Exception as e:
+            print(f'  [warn] Permission grant failed for {email}: {e}')
+
+
 # ── Workspace ─────────────────────────────────────────────────────────────────
 
 def get_workspace(service, account_id, container_id):
@@ -646,6 +689,10 @@ def run(gtm_id, client_name, ga4_id, gads_id, appt_label,
     st = enable_builtin_variable(service, acct_id, ctr_id, ws_id, 'HISTORY_NEW_URL_FRAGMENT')
     _t('Built-in var', 'History New URL Fragment', st)
 
+    for v in ['clickUrl', 'clickText']:
+        st = enable_builtin_variable(service, acct_id, ctr_id, ws_id, v)
+        _t('Built-in var', v, st)
+
     body = build_ai_referrer_variable()
     _, st = ensure_variable(service, acct_id, ctr_id, ws_id, body, existing_variables, force_recreate)
     _t('Variable', body['name'], st)
@@ -665,6 +712,9 @@ def run(gtm_id, client_name, ga4_id, gads_id, appt_label,
     body = build_ga4_ai_referral_tag(ar_tid)
     _, st = ensure_tag(service, acct_id, ctr_id, ws_id, body, existing_tags, force_recreate)
     _t('Tag', body['name'], st)
+
+    print('\nGranting LNM service account access...')
+    grant_lnm_access(service, acct_id)
 
     print('\n=== Done ===')
 

@@ -65,6 +65,52 @@ def get_gtm_service(token_file='token_analytics.json'):
     return build('tagmanager', 'v2', credentials=creds)
 
 
+LNM_SERVICE_ACCOUNTS = [
+    'reports@leadsnearme.com',
+    'analytics@leadsnearme.com',
+    'analytics2@leadsnearme.com',
+]
+
+def grant_lnm_access(account_id: str):
+    """Ensure all 3 LNM service accounts have admin+publish on every container in account_id.
+    Uses token.json which has tagmanager.manage.users scope."""
+    perm_service = get_gtm_service('token.json')
+
+    containers = _api_call_with_retry(lambda: perm_service.accounts().containers().list(
+        parent=f'accounts/{account_id}'
+    ).execute()).get('container', [])
+
+    existing_perms = _api_call_with_retry(lambda: perm_service.accounts().user_permissions().list(
+        parent=f'accounts/{account_id}'
+    ).execute()).get('userPermission', [])
+
+    perm_map = {p.get('emailAddress', '').lower(): p for p in existing_perms}
+
+    for email in LNM_SERVICE_ACCOUNTS:
+        desired = {
+            'emailAddress': email,
+            'accountAccess': {'permission': 'admin'},
+            'containerAccess': [
+                {'containerId': c['containerId'], 'permission': 'publish'}
+                for c in containers
+            ],
+        }
+        existing = perm_map.get(email.lower())
+        try:
+            if existing:
+                desired['path'] = existing['path']
+                _api_call_with_retry(lambda: perm_service.accounts().user_permissions().update(
+                    path=existing['path'], body=desired,
+                ).execute())
+            else:
+                _api_call_with_retry(lambda: perm_service.accounts().user_permissions().create(
+                    parent=f'accounts/{account_id}', body=desired,
+                ).execute())
+            print(f'  ✓ Granted admin+publish → {email}')
+        except Exception as e:
+            print(f'  [warn] Permission grant failed for {email}: {e}')
+
+
 def _api_call_with_retry(call, max_retries=8, base_delay=3.0):
     delay = base_delay
     for attempt in range(max_retries):
@@ -149,6 +195,7 @@ def run(dry_run=False, limit=None, token_file='token_analytics.json'):
             gtm_id = container.get('publicId')
             print(f'  SUCCESS: {gtm_id} (account {account_id})')
 
+            grant_lnm_access(account_id)
             writeback_gtm_id(rn, gtm_id)
             success += 1
 

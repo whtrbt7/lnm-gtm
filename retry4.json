@@ -1,0 +1,62 @@
+[
+  {
+    "id": "0d5aa6a8-8091-4bda-a1ef-460cccb86751",
+    "name": "All Season Collision",
+    "url": "allseasoncollision.com",
+    "gtm_id": "GTM-WFMBGKRR",
+    "gtm_account_id": "6353839636",
+    "gtm_container_id": "251614320",
+    "ga4_measurement_id": "G-MM8BY90NZP",
+    "gads_conversion_id": "AW-9251989076"
+  },
+  {
+    "id": "cb56659d-3ec8-48d1-80d6-62ea1d6010fb",
+    "name": "Auto Tronics",
+    "url": "https://autotronicspa.com",
+    "gtm_id": " GTM-MPLZLLB5",
+    "gtm_account_id": "6354295220",
+    "gtm_container_id": "251872597",
+    "ga4_measurement_id": "G-7BM8BLVVY4",
+    "gads_conversion_id": "AW-5315868180"
+  },
+  {
+    "id": "fcbc3e3f-8255-4c64-9247-0326f9d5bade",
+    "name": "Q Star Auto Repair",
+    "url": "https://qstarautorepairs.com",
+    "gtm_id": "GTM-KFBD8WDQ",
+    "gtm_account_id": "6354015168",
+    "gtm_container_id": "251713560",
+    "ga4_measurement_id": "G-YL7MED17DQ",
+    "gads_conversion_id": "AW-5611244513"
+  },
+  {
+    "id": "24222ff4-ac07-4158-aadd-23af0e3ca825",
+    "name": "Route 11 Auto Repair (West)",
+    "url": "carcareharrisonburg.com",
+    "gtm_id": "GTM-W54PSQRH",
+    "gtm_account_id": "6342221017",
+    "gtm_container_id": "245185345",
+    "ga4_measurement_id": "G-YT30JYY50Q",
+    "gads_conversion_id": "16635602048"
+  },
+  {
+    "id": "eef90c5a-1883-4463-a39c-8a224b416b88",
+    "name": "Route 11 Auto Repair - Harrisonburg",
+    "url": "autorepairharrisonburg.com",
+    "gtm_id": "GTM-M8Q4C45M",
+    "gtm_account_id": "6342219181",
+    "gtm_container_id": "245177762",
+    "ga4_measurement_id": "G-EET9JP0N3R",
+    "gads_conversion_id": "635181883"
+  },
+  {
+    "id": "124b7a82-ca10-4c3b-ae50-39ff8518c067",
+    "name": "Route 11 Auto Repair - New Market",
+    "url": "autorepairnewmarketva.com",
+    "gtm_id": "GTM-5JX3C546",
+    "gtm_account_id": "6353591049",
+    "gtm_container_id": "251470599",
+    "ga4_measurement_id": "G-H9EF3WRPH4",
+    "gads_conversion_id": "AW-4994286494"
+  }
+]

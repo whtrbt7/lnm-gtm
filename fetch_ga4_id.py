@@ -85,11 +85,33 @@ _SCHEDULER_PATTERNS: list[tuple[str, list[str]]] = [
         r'ao-appointment-booked',
         r'autoops',
     ]),
+    ('steercrm', [
+        r'steercrm\.com',
+        r'steer-crm\.com',
+        r'steercrm',
+    ]),
     ('shopgenie', [
         r'shopgenie\.com',
         r'shop-genie\.com',
         r'getshopgenie\.com',
         r'shopgenie',
+    ]),
+    ('shopmonkey', [
+        r'shopmonkey\.io',
+        r'shopmonkey\.com',
+        r'sm_work_request_form',
+        r'shopmonkey',
+    ]),
+    ('tekmetric', [
+        r'booking\.tekmetric\.com',
+        r'tekmetric\.com',
+        r'bookingTool',
+        r'tekmetric',
+    ]),
+    ('protractor', [
+        r'appointment\.protractor\.com',
+        r'protractor\.net',
+        r'protractor',
     ]),
     ('oktorocket', [
         r'oktorocket\.com',

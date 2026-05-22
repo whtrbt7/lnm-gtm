@@ -1,6 +1,6 @@
 """
-One-time script to generate OAuth credentials for achiu@leadsnearme.com.
-Usage: python get_alex_token.py
+One-time script to generate OAuth credentials for reports@leadsnearme.com.
+Usage: python get_reports_token.py
 """
 
 import json
@@ -12,7 +12,7 @@ CLIENT_SECRET = os.path.join(
     SCRIPT_DIR,
     'client_secret_1085978995784-8k7k7629ln2vsdn1j544d4f1b8kgf77o.apps.googleusercontent.com.json'
 )
-TOKEN_OUT = os.path.join(SCRIPT_DIR, 'token_alex.json')
+TOKEN_OUT = os.path.join(SCRIPT_DIR, 'token_reports.json')
 
 # Expanded scopes to cover every possibility for creation/publishing
 SCOPES = [
@@ -25,7 +25,7 @@ SCOPES = [
 ]
 
 print(f'Opening browser for OAuth login...')
-print(f'IMPORTANT: Log in with achiu@leadsnearme.com')
+print(f'IMPORTANT: Log in with reports@leadsnearme.com')
 print()
 
 # Delete old token to ensure a fresh flow with new scopes
@@ -34,7 +34,7 @@ if os.path.exists(TOKEN_OUT):
 
 flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRET, SCOPES)
 creds = flow.run_local_server(
-    port=8083,
+    port=8082,
     prompt='consent',
     access_type='offline',
 )

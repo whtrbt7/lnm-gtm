@@ -1,12 +1,11 @@
 venv/
 __pycache__/
 *.pyc
-token.json
-token_analytics.json
-token_reports.json
-token_sheets.json
-client_secret.json
-client_secret_1085978995784-8k7k7629ln2vsdn1j544d4f1b8kgf77o.apps.googleusercontent.com.json
+token*.json
+client_secret*.json
 config.json
 *.xlsx
+*.csv
 .env
+.DS_Store
+lnm-gads/

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "ce59dc7c-e125-4c61-8532-bde104e7fb96",
+    "name": "4th Street Auto Repair - Powered by Victory - Duluth",
+    "url": "4thstauto.com",
+    "gtm_id": "GTM-PZRPVSHQ",
+    "gtm_account_id": "6303358494",
+    "gtm_container_id": "224608788",
+    "ga4_measurement_id": null,
+    "gads_conversion_id": "AW-4150005213"
+  },
+  {
+    "id": "e1831a7b-8943-4338-9c1c-257b51352622",
+    "name": "Accurate Auto & Tire Repair - Powered by Victory",
+    "url": "myaccurateauto.com",
+    "gtm_id": "GTM-KK99HM9Q",
+    "gtm_account_id": "6303358494",
+    "gtm_container_id": "236200090",
+    "ga4_measurement_id": "G-QDMELXVC1N",
+    "gads_conversion_id": "AW-4150005213"
+  }
+]

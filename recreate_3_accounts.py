@@ -3,7 +3,7 @@ Re-create GTM accounts for 3 specific rows that failed during the Playwright run
 Rows: 460, 525, 562
 """
 import sys
-sys.path.insert(0, '/Users/alexchiu/llmprojects/GTM-Automation')
+sys.path.insert(0, '/Users/alexchiu/llmprojects/lnm-gtm')
 from create_accounts import create_gtm_account
 from playwright.sync_api import sync_playwright
 import openpyxl, re, time, os

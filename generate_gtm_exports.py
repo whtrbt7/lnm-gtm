@@ -4,7 +4,7 @@ GTM Bulk Export Generator — LNM Standard v1.0
 Reads the XLSX and generates a GTM container JSON export for each row
 that has a GA4 Measurement ID and GAds conversion data filled in.
 
-Output: one JSON file per row → GTM-Automation/exports/{safe_name}_row{N}.json
+Output: one JSON file per row → lnm-gtm/exports/{safe_name}_row{N}.json
 
 Usage:
     python generate_gtm_exports.py             # All tiers with data

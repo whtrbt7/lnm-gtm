@@ -37,10 +37,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
-TOKEN_FILE   = os.path.join(SCRIPT_DIR, 'token.json')  # overridden by --token-file
+TOKEN_FILE   = os.path.join(SCRIPT_DIR, 'token_developer.json')  # overridden by --token-file
 CACHE_FILE   = os.path.join(SCRIPT_DIR, 'gtm_id_cache.json')
 
-SUPABASE_URL = os.environ.get('SUPABASE_URL', 'http://127.0.0.1:54321')
+SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://supabase.alexanderchiu.com')
 SUPABASE_KEY = os.environ['SUPABASE_SERVICE_KEY']
 
 SUPABASE_HEADERS = {
@@ -53,6 +53,24 @@ CALLRAIL_API_KEY = os.environ.get('CALLRAIL_API_KEY', '36497188d7030dbe692425202
 
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
+
+def fetch_conversion_id_from_table(location_id):
+    """Get correct Conversion ID from gads_conversions table.
+    This is the account-level ID (e.g. 10838160041) used in GTM awct tags
+    and the AW- base tag — distinct from the Customer ID (gads_cid).
+    """
+    r = requests.get(
+        f'{SUPABASE_URL}/rest/v1/gads_conversions',
+        params={'location_id': f'eq.{location_id}', 'select': 'conversion_id',
+                'conversion_id': 'not.is.null', 'limit': 1},
+        headers=SUPABASE_HEADERS, timeout=10,
+    )
+    r.raise_for_status()
+    rows = r.json()
+    if rows and rows[0].get('conversion_id'):
+        return str(rows[0]['conversion_id'])
+    return None
+
 
 def fetch_location(gads_cid, location_id=None):
     select = 'id,name,url,gtm_id,gtm_account_id,gtm_container_id,ga4_measurement_id,ga4_id,gads_conversion_id,gads_appt_label,gads_dc_label,gads_phone_label,scheduler_type,phone_number,callrail_account_id,callrail_company_id,dashboard_type,brand_id'
@@ -1200,6 +1218,15 @@ def main():
     gtm_id     = str(loc['gtm_id']).strip()
     ga4_id     = str(loc['ga4_measurement_id'] or '').strip()
     gads_id    = str(int(float(str(loc['gads_conversion_id']).replace('AW-', '').strip())))
+
+    # Override with correct Conversion ID from gads_conversions table.
+    # locations.gads_conversion_id may store the CID (wrong); gads_conversions
+    # is synced from the GAds API and holds the real tag Conversion ID.
+    if not has_overrides:
+        table_conv_id = fetch_conversion_id_from_table(loc['id'])
+        if table_conv_id and table_conv_id != gads_id:
+            print(f'  ✓ Conversion ID from gads_conversions: {table_conv_id} (was {gads_id})')
+            gads_id = table_conv_id
     appt_label = str(loc.get('gads_appt_label') or '').strip()
     
     # ── Multi-phone logic ───────────────────────────────────────────────────

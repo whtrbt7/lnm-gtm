@@ -25,7 +25,7 @@ from googleapiclient.errors import HttpError
 load_dotenv()
 
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
-SUPABASE_URL = os.environ.get('SUPABASE_URL', 'http://127.0.0.1:54321')
+SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://supabase.alexanderchiu.com')
 SUPABASE_KEY = os.environ['SUPABASE_SERVICE_KEY']
 DB_HEADERS   = {
     'apikey': SUPABASE_KEY,
@@ -164,7 +164,7 @@ def main():
     parser.add_argument('--dry-run',    action='store_true')
     parser.add_argument('--limit',      type=int, default=0)
     parser.add_argument('--cid',        help='Process only this GAds CID')
-    parser.add_argument('--token-file', default='token_analytics.json')
+    parser.add_argument('--token-file', default='token_developer.json')
     parser.add_argument('--skip-tags',  action='store_true', help='Only create containers, skip setup_tags')
     args = parser.parse_args()
 

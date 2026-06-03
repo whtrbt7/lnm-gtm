@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
-SUPABASE_URL = os.environ.get('SUPABASE_URL', 'http://127.0.0.1:54321')
+SUPABASE_URL = os.environ.get('SUPABASE_URL', 'https://supabase.alexanderchiu.com')
 SUPABASE_KEY = os.environ['SUPABASE_SERVICE_KEY']
 SB_HEADERS   = {
     'apikey':        SUPABASE_KEY,
@@ -30,10 +30,36 @@ TOKEN_MAP = {
     'analytics2@leadsnearme.com': os.path.join(SCRIPT_DIR, 'token_analytics2.json'),
     'reports@leadsnearme.com':    os.path.join(SCRIPT_DIR, 'token_reports.json'),
 }
-DEFAULT_TOKEN = os.path.join(SCRIPT_DIR, 'token_reports.json')
+DEFAULT_TOKEN = os.path.join(SCRIPT_DIR, 'token_developer.json')
 
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
+
+def fetch_conversion_id_map() -> dict:
+    """Returns {location_id: conversion_id} from gads_conversions.
+    This is the real GAds Conversion ID (e.g. 10838160041) used in GTM awct tags,
+    distinct from the Customer ID stored in locations.gads_cid.
+    """
+    mapping, offset = {}, 0
+    while True:
+        r = requests.get(
+            f'{SUPABASE_URL}/rest/v1/gads_conversions',
+            params={'select': 'location_id,conversion_id', 'conversion_id': 'not.is.null',
+                    'offset': offset, 'limit': 1000},
+            headers=SB_HEADERS, timeout=15,
+        )
+        r.raise_for_status()
+        batch = r.json()
+        for row in batch:
+            loc_id = row.get('location_id')
+            conv_id = row.get('conversion_id')
+            if loc_id and conv_id and loc_id not in mapping:
+                mapping[loc_id] = str(conv_id)
+        if len(batch) < 1000:
+            break
+        offset += 1000
+    return mapping
+
 
 def fetch_locations() -> list[dict]:
     results, offset = [], 0
@@ -225,7 +251,11 @@ def main():
 
     print('Fetching locations from Supabase…')
     locs = fetch_locations()
-    print(f'  {len(locs)} location(s) with gads_cid + gtm_id\n')
+    print(f'  {len(locs)} location(s) with gads_cid + gtm_id')
+
+    print('Fetching correct Conversion IDs from gads_conversions…')
+    conv_id_map = fetch_conversion_id_map()
+    print(f'  {len(conv_id_map)} location(s) with Conversion ID in gads_conversions\n')
 
     # Deduplicate by (gtm_account_id, gtm_container_id), resolve correct CID
     # If multiple locations share a container, verify consistent CID
@@ -238,7 +268,8 @@ def main():
         if not acct or not ctr or '@' in str(acct):
             continue  # skip email-style or missing account IDs
         key = (str(acct), str(ctr))
-        cid = str(loc['gads_cid'])
+        # Use real Conversion ID from gads_conversions; fall back to gads_cid stripped
+        cid = conv_id_map.get(loc['id']) or str(loc['gads_cid']).replace('-', '')
 
         if key not in seen:
             seen[key] = {**loc, '_cid': cid}

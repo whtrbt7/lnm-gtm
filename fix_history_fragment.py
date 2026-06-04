@@ -35,8 +35,8 @@ ERROR_GTM_IDS = [
     'GTM-MMJ89CL6',  'GTM-WJNVLL2B',
     # batch 2 (conv_zero_139)
     'GTM-T8HCNJDR', 'GTM-WTT5F6VC', 'GTM-WPF3PD8W', 'GTM-KLDDL8HH',
-    # batch 3 (setup_tags re-runs)
-    'GTM-M42MSMDX',
+    # batch 3 (setup_tags re-runs + audit batch)
+    'GTM-M42MSMDX', 'GTM-K4BD7NSK',
 ]
 
 OLD_VAR = '{{History New URL Fragment}}'

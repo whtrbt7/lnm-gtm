@@ -1586,7 +1586,7 @@ def main():
     _, st = ensure_variable(service, acct_id, ctr_id, ws_id, ai_referrer_variable(), existing_variables, fr)
     log('✓' if st != 'existed' else '·', 'Variable', f'JS - AI Referrer ({st})')
 
-    tf_tid, st = ensure_trigger(service, acct_id, ctr_id, ws_id, text_fragment_trigger(), existing_triggers, fr)
+    tf_tid, st = ensure_trigger(service, acct_id, ctr_id, ws_id, text_fragment_trigger(), existing_triggers, True)
     log('✓' if st != 'existed' else '·', 'Trigger', f'HC - Text Fragment ({st})')
 
     ar_tid, st = ensure_trigger(service, acct_id, ctr_id, ws_id, ai_referral_trigger(), existing_triggers, fr)

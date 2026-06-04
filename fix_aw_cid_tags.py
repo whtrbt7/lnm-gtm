@@ -293,7 +293,7 @@ def main():
         print(f'  {len(conflicts)} CID conflict(s) (shared containers with different CIDs — skipped):')
         for c in conflicts[:5]:
             print(f'    {c}')
-        # Remove conflicted containers
+        # Remove conflicted containers — use same cid formula as dedup loop
         conflict_keys = set()
         for loc in locs:
             acct = loc.get('gtm_account_id', '')
@@ -301,7 +301,8 @@ def main():
             if not acct or not ctr or '@' in str(acct):
                 continue
             key = (str(acct), str(ctr))
-            if seen.get(key, {}).get('_cid') != str(loc['gads_cid']):
+            cid = conv_id_map.get(loc['id']) or str(loc['gads_cid']).replace('-', '')
+            if seen.get(key, {}).get('_cid') != cid:
                 conflict_keys.add(key)
         containers = [c for c in containers if (str(c['gtm_account_id']), str(c['gtm_container_id'])) not in conflict_keys]
         print(f'  {len(containers)} container(s) after removing conflicts\n')

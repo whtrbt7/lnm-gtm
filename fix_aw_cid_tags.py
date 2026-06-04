@@ -247,10 +247,21 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--limit', type=int, default=0)
+    parser.add_argument('--cid-file', help='CSV file with CIDs in first column (header row skipped)')
     args = parser.parse_args()
+
+    allowed_cids: set[str] | None = None
+    if args.cid_file:
+        import csv
+        with open(args.cid_file) as f:
+            rows = list(csv.reader(f))
+        allowed_cids = {str(r[0]).replace('-', '').strip() for r in rows[1:] if r and r[0].strip()}
+        print(f'CID filter: {len(allowed_cids)} account(s) from {args.cid_file}')
 
     print('Fetching locations from Supabase…')
     locs = fetch_locations()
+    if allowed_cids:
+        locs = [l for l in locs if str(l.get('gads_cid', '')).replace('-', '') in allowed_cids]
     print(f'  {len(locs)} location(s) with gads_cid + gtm_id')
 
     print('Fetching correct Conversion IDs from gads_conversions…')

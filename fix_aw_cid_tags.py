@@ -319,8 +319,9 @@ def main():
         name     = loc.get('name', '?')
         acct     = str(loc['gtm_account_id'])
         ctr      = str(loc['gtm_container_id'])
-        cid      = loc['_cid']
-        token_file = DEFAULT_TOKEN  # reports@ has publish access to all containers
+        cid        = loc['_cid']
+        lnm_acct   = loc.get('gtm_lnm_acct') or ''
+        token_file = TOKEN_MAP.get(lnm_acct, DEFAULT_TOKEN)
 
         print(f'[{i}/{len(containers)}] {gtm_id}  {name}  →  CID {cid}')
 

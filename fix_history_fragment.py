@@ -29,9 +29,12 @@ TOKEN_MAP = {
 DEFAULT_TOKEN = os.path.join(SCRIPT_DIR, 'token_developer.json')
 
 ERROR_GTM_IDS = [
+    # batch 1 (conv_weak_198)
     'GTM-TLWKBMQ3', 'GTM-5R78LZ6N', 'GTM-NHDV7XL8', 'GTM-P433K3X3',
     'GTM-T9NLZ68R',  'GTM-PCKSRZXZ', 'GTM-KFR8WQ7P', 'GTM-TB3WDMNN',
     'GTM-MMJ89CL6',  'GTM-WJNVLL2B',
+    # batch 2 (conv_zero_139)
+    'GTM-T8HCNJDR', 'GTM-WTT5F6VC', 'GTM-WPF3PD8W', 'GTM-KLDDL8HH',
 ]
 
 OLD_VAR = '{{History New URL Fragment}}'
